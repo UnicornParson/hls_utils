@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+import enum
+import traceback
+import configparser
+import os
+import sys
+import argparse
+import m3u8
+import asyncio
+import pprint
+
+from urllib.parse import urlparse
+
+from common import *
+from hls_internal import *
+
+class Actions(enum.Enum):
+	invalid = -1
+	download = 0
+	scan = 1
+	stat = 2
+
+	@staticmethod
+	def parse(value) -> enum.Enum:
+		if value == None:
+			return Actions.invalid
+		for m, mm in Actions.__members__.items():
+			if m == value.lower():
+				return mm
+		return Actions.invalid
+
+async def downloadCmd(args) -> bool:
+	d = Downloader()
+	rc = await d.downloadPlaylist(args.url)
+	return rc
+
+async def statCmd(args) -> bool:
+	s = StatCollector.StatCollector()
+	printer = None
+	if args.verbose:
+		printer = StatCollector.StatVerbosePrinter()
+	else:
+		printer = StatCollector.StatPrinter()
+	writer = DbWriter.StatSqliteWriter()
+
+	rc = await writer.setup()
+	if not rc:
+		print("cannot setup writer")
+		return rc
+	rc = s.setup([writer, printer])
+	if not rc:
+		await writer.close()
+		print("cannot setup collector")
+		return rc
+
+	if args.single:
+		rc = await s.processUrl(args.url)
+	else:
+		rc = await s.runLoop(args.url)
+
+	await writer.close()
+	return rc
+
+async def scanCmd(args) -> bool:
+	parser = ListParser.Parser()
+
+	content = await parser.load(args.url)
+
+	if not content.ok:
+		print("cannot load %s reason %s" % (args.url, content.reason))
+
+	pprint.pprint(content.items)
+	return content.ok
+
+async def main() -> int:
+	parser = argparse.ArgumentParser(add_help=True, description="HLS tool")
+	parser.add_argument("-o", "--out",action="store", default=".", help="download folder") 
+	parser.add_argument("-1", "--single", action="store_true", help="single run. test and exit")
+	parser.add_argument("-v", "--verbose", action="store_true", help="full console output")
+	parser.add_argument("cmd", help="what do we do")
+	parser.add_argument("url", help="stream url")
+
+	args = parser.parse_args()
+	cmd = Actions.parse(args.cmd)
+	if cmd == Actions.invalid:
+		print("invalid cmd")
+		parser.print_help()
+		return -1
+
+	rc = False
+	if cmd == Actions.download:
+		rc = await downloadCmd(args)
+	elif cmd == Actions.stat:
+		rc = await statCmd(args)
+	elif cmd == Actions.scan:
+		rc = await scanCmd(args)
+	if rc:
+		return 0
+	return -1
+
+if __name__ == '__main__':
+	result = 0
+	try:
+		result = asyncio.run(main())
+	except KeyboardInterrupt:
+		print(" KeyboardInterrupt...")
+	exit(result)
