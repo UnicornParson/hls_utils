@@ -4,15 +4,8 @@ import traceback
 import time
 from urllib.parse import urlparse
 from .PlaylistStat import *
+from .common import *
 
-def isAbsoluteUrl(url) -> bool:
-	return bool(urlparse(url).netloc)
-
-def urlBase(u) -> str:
-	return (u[:u.rfind('/')] + "/")
-
-def urlTail(u)->str:
-	return u[u.rfind('/'):]
 
 class StatCollector:
 	def __init__(self) -> None:

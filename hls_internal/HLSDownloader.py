@@ -1,6 +1,9 @@
 import aiofiles
 import aiohttp
 from aiohttp import ClientSession
+import m3u8
+from urllib.parse import urlparse
+from .common import *
 
 class Downloader:
 	def __init__(self) -> None:
@@ -22,11 +25,19 @@ class Downloader:
 			self.playlist = m3u8.load(url)
 		except Exception as e:
 			print("cannot download ", url, " reason ", str(e))
+			return False
 		ret = True
+		if not self.playlist:
+			print("no playlist")
+			return False
 		if self.playlist.is_variant:
 			for sub in self.playlist.playlists:
-				print("download ", sub.uri, " with bandwidth ", sub.stream_info.bandwidth)
-				rc = await self.downloadPlaylist(sub.uri)
+				newuri = sub.uri
+				if not isAbsoluteUrl(sub.uri):
+					base = urlBase(url)
+					newuri = base + sub.uri
+				print("download ", newuri, " with bandwidth ", sub.stream_info.bandwidth)
+				rc = await self.downloadPlaylist(newuri)
 				ret &= rc
 			return ret
 		

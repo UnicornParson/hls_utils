@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from common import *
 from hls_internal import *
+from hls_internal.HLSDownloader import *
 
 class Actions(enum.Enum):
 	invalid = -1
@@ -29,6 +30,14 @@ class Actions(enum.Enum):
 			if m == value.lower():
 				return mm
 		return Actions.invalid
+	
+	@staticmethod
+	def values() -> list:
+		return [e.value for e in Actions]
+	
+	@staticmethod
+	def str_values() -> list:
+		return [e.name for e in Actions]
 
 async def downloadCmd(args) -> bool:
 	d = Downloader()
@@ -78,7 +87,7 @@ async def main() -> int:
 	parser.add_argument("-o", "--out",action="store", default=".", help="download folder") 
 	parser.add_argument("-1", "--single", action="store_true", help="single run. test and exit")
 	parser.add_argument("-v", "--verbose", action="store_true", help="full console output")
-	parser.add_argument("cmd", help="what do we do")
+	parser.add_argument("cmd", help="what do we do. variants: %s " % str(Actions.str_values()))
 	parser.add_argument("url", help="stream url")
 
 	args = parser.parse_args()
