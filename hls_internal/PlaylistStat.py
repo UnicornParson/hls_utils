@@ -3,6 +3,8 @@ import base64
 import json
 import pprint
 import datetime
+import logging
+import json
 
 class PlaylistStat:
 	def __init__(self) -> None:
@@ -57,6 +59,7 @@ class StatWriter:
 class StatPrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
 		d = stat.toDict()
+		logging.debug(json.dumps(d))
 		if d["lastPlaylist"]:
 			s = len(d["lastPlaylist"])
 			d["lastPlaylist"] = "<truncated data> size %d" % s
@@ -66,4 +69,5 @@ class StatPrinter(StatWriter):
 class StatVerbosePrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
 		pprint.pprint(stat.toDict())
+		logging.debug(str(stat.toDict()))
 		return True

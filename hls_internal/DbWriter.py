@@ -6,6 +6,39 @@ import asyncio
 import time
 from .PlaylistStat import *
 
+"""
+			CREATE TABLE "segments" (
+				"id"	INTEGER NOT NULL UNIQUE,
+				"parent"	INTEGER NOT NULL,
+				"url"	TEXT,
+				"seq"	INTEGER NOT NULL DEFAULT 0,
+				"hash"	TEXT NOT NULL,
+				"size"	INTEGER NOT NULL DEFAULT 0,
+				"meta"	TEXT,
+				"ex"	TEXT,
+				PRIMARY KEY("id" AUTOINCREMENT)
+				);
+		"""
+
+class SegmentRecord:
+	def __init__(self) -> None:
+		self.parent = ""
+		self.url = ""
+		self.seq = 0
+		self.hash = ""
+		self.size = 0
+		self.meta = ""
+		self.ex = ""
+
+	def toTuple(self) -> tuple:
+		return (self.parent,
+				self.url,
+				self.seq,
+				self.hash,
+				self.size,
+				self.meta,
+				self.ex)
+
 class DBEngine:
 	def __init__(self) -> None:
 		self.connection = None
@@ -46,6 +79,20 @@ class DBEngine:
 				PRIMARY KEY("id" AUTOINCREMENT)
 		);
 		""")
+
+		self.cursor.execute("""
+			CREATE TABLE "segments" (
+				"id"	INTEGER NOT NULL UNIQUE,
+				"parent"	INTEGER NOT NULL,
+				"url"	TEXT,
+				"seq"	INTEGER NOT NULL DEFAULT 0,
+				"hash"	TEXT NOT NULL,
+				"size"	INTEGER NOT NULL DEFAULT 0,
+				"meta"	TEXT,
+				"ex"	TEXT,
+				PRIMARY KEY("id" AUTOINCREMENT)
+				);
+		""")
 		self.cursor.execute("PRAGMA auto_vacuum = '2'")
 		self.cursor.execute("VACUUM")
 		self.cursor.execute("PRAGMA journal_mode = 'MEMORY'")
@@ -80,6 +127,19 @@ class StatSqliteWriter(StatWriter):
 
 	def fname(self) -> str:
 		return "%d_p%d" % (round(time.time() * 1000), os.getpid())
+
+	async def writeSegment(self, segment: SegmentRecord) -> bool:
+		if not self.engine:
+			print("no engine")
+			return False
+		try:
+			data = segment.toTuple()
+			q = """INSERT INTO 'segments'('parent', 'url', 'seq', 'hash', 'size','meta', 'ex')VALUES (?,?,?,?,?,?,?);"""
+			await self.engine.exec(q, data)
+		except Exception as e:
+			print("cannot exec query ", str(e))
+			return False
+		return True
 
 	async def write(self, stat: PlaylistStat) -> bool:
 		if not self.engine:

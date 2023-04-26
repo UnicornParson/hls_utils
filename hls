@@ -9,12 +9,71 @@ import argparse
 import m3u8
 import asyncio
 import pprint
-
+import logging
 from urllib.parse import urlparse
-
+import tracemalloc
 from common import *
 from hls_internal import *
 from hls_internal.HLSDownloader import *
+
+def eprint(msg: str):
+	logging.error(msg)
+
+class Chain():
+	def __init__(self) -> None:
+		pass
+	async def setup(self, args):
+		return True
+	async def close(self, args):
+		return True
+	async def exec(self, args):
+		raise NotImplementedError
+	def chainName(self) -> str:
+		return "BaseChain"
+
+
+class ScanChain(Chain):
+	def chainName(self) -> str:
+		return "ScanChain"
+	async def exec(self, args):
+		parser = ListParser.Parser()
+		content = await parser.load(args.url)
+		if not content.ok:
+			eprint("cannot load %s reason %s" % (args.url, content.reason))
+		pprint.pprint(content.items)
+		return content.ok
+	
+class LoopRunner():
+	def __init__(self, chain: Chain) -> None:
+		self.chain = chain
+
+	async def run(self, args):
+		rc = await self.chain.setup(args)
+		if not rc:
+			eprint("cannot setup %s. args [%s]" %(self.chain.chainName(), str(args)))
+			return False
+		if args.single:
+			rc = await self.single(args)
+		else:
+			rc = await self.loop(args)
+		await self.chain.close(args)
+		return rc
+
+	async def single(self, args):
+		return await self.chain.exec(args)
+	
+	async def loop(self, args):
+		rc = []
+		try:
+			while True:
+				rc.append (await self.chain.exec(args))
+				await asyncio.sleep(1)
+		except KeyboardInterrupt:
+			eprint("Interrupted..")
+		except Exception as e:
+			eprint("error: " + str(e))
+		return rc
+
 
 class Actions(enum.Enum):
 	invalid = -1
@@ -40,47 +99,54 @@ class Actions(enum.Enum):
 		return [e.name for e in Actions]
 
 async def downloadCmd(args) -> bool:
-	d = Downloader()
+	d = HLSDownloader.Downloader()
 	rc = await d.downloadPlaylist(args.url)
 	return rc
 
+class StatChain(Chain):
+	def __init__(self) -> None:
+		super().__init__()
+		self.s = None
+		self.writer = None
+
+	async def setup(self, args):
+		self.s = StatCollector.StatCollector()
+		printer = None
+		if args.verbose:
+			printer = StatCollector.StatVerbosePrinter()
+		else:
+			printer = StatCollector.StatPrinter()
+		self.writer = DbWriter.StatSqliteWriter()
+
+		rc = await self.writer.setup()
+		if not rc:
+			eprint("cannot setup writer")
+			return rc
+		rc = self.s.setup([self.writer, printer])
+		if not rc:
+			await self.writer.close()
+			eprint("cannot setup collector")
+		return rc
+		
+	async def exec(self, args):
+		rc = await self.s.processUrl(args.url)
+		return rc
+	
+	async def close(self, args):
+		if self.writer:
+			await self.writer.close()
+		return True
+
+
 async def statCmd(args) -> bool:
-	s = StatCollector.StatCollector()
-	printer = None
-	if args.verbose:
-		printer = StatCollector.StatVerbosePrinter()
-	else:
-		printer = StatCollector.StatPrinter()
-	writer = DbWriter.StatSqliteWriter()
-
-	rc = await writer.setup()
-	if not rc:
-		print("cannot setup writer")
-		return rc
-	rc = s.setup([writer, printer])
-	if not rc:
-		await writer.close()
-		print("cannot setup collector")
-		return rc
-
-	if args.single:
-		rc = await s.processUrl(args.url)
-	else:
-		rc = await s.runLoop(args.url)
-
-	await writer.close()
-	return rc
+	chain = StatChain()
+	runner = LoopRunner(chain)
+	return await runner.run(args)
 
 async def scanCmd(args) -> bool:
-	parser = ListParser.Parser()
-
-	content = await parser.load(args.url)
-
-	if not content.ok:
-		print("cannot load %s reason %s" % (args.url, content.reason))
-
-	pprint.pprint(content.items)
-	return content.ok
+	chain = ScanChain()
+	runner = LoopRunner(chain)
+	return await runner.run(args)
 
 async def main() -> int:
 	parser = argparse.ArgumentParser(add_help=True, description="HLS tool")
@@ -110,8 +176,11 @@ async def main() -> int:
 
 if __name__ == '__main__':
 	result = 0
+	logging.basicConfig(filename='hls.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+	tracemalloc.start()
 	try:
 		result = asyncio.run(main())
 	except KeyboardInterrupt:
 		print(" KeyboardInterrupt...")
+	logging.shutdown()
 	exit(result)
