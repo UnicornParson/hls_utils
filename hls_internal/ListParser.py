@@ -17,7 +17,7 @@ class Parser():
 	def __init__(self) -> None:
 		pass
 
-	async def readRaw(self, url:str)->str:
+	async def readRaw(self, url: str) -> str:
 		if not url:
 			return ("", "not url")
 		raw = ""

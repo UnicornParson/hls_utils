@@ -26,6 +26,9 @@ def mpSeed() -> str:
 def isAbsoluteUrl(url) -> bool:
 	return bool(urlparse(url).netloc)
 
+def isUrl(url) -> bool:
+	return isAbsoluteUrl(url)
+
 def urlBase(u) -> str:
 	return (u[:u.rfind('/')] + "/")
 

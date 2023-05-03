@@ -56,6 +56,10 @@ class StatWriter:
 	async def close(self):
 		pass
 
+class NopPrinter(StatWriter):
+	async def write(self, stat: PlaylistStat) -> bool:
+		return True
+
 class StatPrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
 		d = stat.toDict()
