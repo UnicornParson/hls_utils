@@ -1,10 +1,11 @@
 import asyncio
 import base64
 import json
-import pprint
 import datetime
 import logging
 import json
+
+from .common import *
 
 class PlaylistStat:
 	def __init__(self) -> None:
@@ -67,11 +68,11 @@ class StatPrinter(StatWriter):
 		if d["lastPlaylist"]:
 			s = len(d["lastPlaylist"])
 			d["lastPlaylist"] = "<truncated data> size %d" % s
-		pprint.pprint(d)
+		objprint("statprinter.dict", d)
 		return True
 
 class StatVerbosePrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
-		pprint.pprint(stat.toDict())
+		objprint("StatVerbosePrinter.doct", stat.toDict())
 		logging.debug(str(stat.toDict()))
 		return True

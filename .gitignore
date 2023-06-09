@@ -131,3 +131,5 @@ dmypy.json
 
 tmp/
 .idea
+/doc/*.bkp
+/doc/*.dtmp

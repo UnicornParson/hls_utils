@@ -5,6 +5,7 @@ import os
 import asyncio
 import time
 from .PlaylistStat import *
+from .common import *
 
 """
 			CREATE TABLE "segments" (
@@ -115,7 +116,7 @@ class StatSqliteWriter(StatWriter):
 		try:
 			await self.engine.open(name)
 		except Exception as e:
-			print("cannot open db in %s reason %s" % (name, str(e)))
+			eprint("cannot open db in %s reason %s" % (name, str(e)))
 			self.engine.close()
 			return False
 		return True
@@ -130,20 +131,20 @@ class StatSqliteWriter(StatWriter):
 
 	async def writeSegment(self, segment: SegmentRecord) -> bool:
 		if not self.engine:
-			print("no engine")
+			eprint("no engine")
 			return False
 		try:
 			data = segment.toTuple()
 			q = """INSERT INTO 'segments'('parent', 'url', 'seq', 'hash', 'size','meta', 'ex')VALUES (?,?,?,?,?,?,?);"""
 			await self.engine.exec(q, data)
 		except Exception as e:
-			print("cannot exec query ", str(e))
+			eprint("cannot exec query ", str(e))
 			return False
 		return True
 
 	async def write(self, stat: PlaylistStat) -> bool:
 		if not self.engine:
-			print("no engine")
+			eprint("no engine")
 			return False
 		try:
 			data = stat.toTuple()
@@ -151,7 +152,7 @@ class StatSqliteWriter(StatWriter):
 			 		VALUES (?,?,?,?,?,?,?,?,?,?);"""
 			await self.engine.exec(q, data)
 		except Exception as e:
-			print("cannot exec query ", str(e))
+			eprint("cannot exec query ", str(e))
 			return False
 		return True
 		

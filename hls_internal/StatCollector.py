@@ -29,7 +29,7 @@ class StatCollector:
 				if writer:
 					writeRc &= await writer.write(s)
 			if not writeRc:
-				print("cannot write to writer")
+				eprint("cannot write to writer")
 		return ret
 
 	async def runLoop(self, url: str) -> bool:
@@ -39,23 +39,24 @@ class StatCollector:
 				rc &= await self.processUrl(url)
 				await asyncio.sleep(1)
 		except KeyboardInterrupt:
-			print("Interrupted..")
+			eprint("Interrupted..")
 		except Exception as e:
-			print("error: ", str(e))
+			eprint("error: ", str(e))
 			rc = False
 		return rc
 
 	async def getPlaylistStat(self, url: str):
 		if not self.statWriters:
 			raise ValueError("run before setup")
-		print("stat for ", url)
+		mprint("stat for %s" % url)
 		stat = PlaylistStat()
 		stat.url = url
 		stat.bandwidth = 0
 		stat.loadDuaration = 0.0
+		stat.duration = 0
 		try:
 			before = time.time()
-			playlist = m3u8.load(url)
+			playlist = m3u8.load(url, timeout=3.0)
 			stat.loadDuaration = (time.time()-before)
 		except Exception as e:
 			stat.invalid = True
@@ -65,7 +66,7 @@ class StatCollector:
 		stat.variant = playlist.is_variant
 		if playlist.is_variant:
 			for sub in playlist.playlists:
-				print("download ", sub.uri, " with bandwidth ", sub.stream_info.bandwidth)
+				mprint("download %s with bandwidth %s" % (sub.uri, sub.stream_info.bandwidth))
 				newuri = sub.uri
 				if not isAbsoluteUrl(sub.uri):
 					base = urlBase(url)

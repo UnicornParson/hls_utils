@@ -3,6 +3,7 @@ import aiofiles
 import aiohttp
 from aiohttp import ClientSession
 import urllib
+from .common import *
 
 def isUrl(path:str)->bool:
 	return urllib.parse.urlparse(path).scheme not in ["", "file"]
@@ -23,7 +24,7 @@ class Parser():
 		raw = ""
 		err = ""
 		if isUrl(url):
-			print("load %s as remote file" % url)
+			mprint("load %s as remote file" % url)
 			async with aiohttp.ClientSession() as session:
 				async with session.get(url) as response:
 					if response.status == 200:
@@ -47,7 +48,6 @@ class Parser():
 			ret.reason = rc[1]
 			ret.ok = False
 			return ret
-		print(rc[0])
 		ret.items = rc[0].splitlines()
 		ret.ok = True
 		return ret

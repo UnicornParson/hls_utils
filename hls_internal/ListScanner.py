@@ -36,5 +36,7 @@ class ListScanner:
 		for u in self.urls:
 			collector = StatCollector()
 			collector.setup([self.nop])
-			stat = await collector.getPlaylistStat(u)
-			pprint.pprint(stat)
+			statsList = await collector.getPlaylistStat(u)
+			objprint("playlist stat:", statsList)
+			rc.extend(statsList)
+		return rc

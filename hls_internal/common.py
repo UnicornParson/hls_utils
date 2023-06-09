@@ -4,9 +4,27 @@ from urllib.parse import urlparse
 import aiofiles
 import aiohttp
 import shutil
+import logging
+import pprint
+
+class Globals:
+	verbose: bool = False
 
 def mstime() -> int:
   return round(time.time() * 1000)
+
+def eprint(msg: str):
+	logging.error(msg)
+	print("# " + msg)
+
+def mprint(msg: str):
+	logging.info(msg)
+	if Globals.verbose:
+		print("# " + msg)
+
+def objprint(msg, obj):
+	s = pprint.pformat(obj)
+	mprint("%s: [\n%s\n]" % (msg, s))
 
 def fssync():
   os.system("sync")
@@ -88,7 +106,7 @@ async def downloadFile(url: str, target:str = "")-> DownloadFileStat:
 				await f.write(data)
 				await f.close()
 				shutil.move(tmpname, ret.target)
-				print(url, " done")
+				mprint(url, " done")
 				ret.ok = True
 				ret.time = time.time() - start
 				if ret.time > 0:

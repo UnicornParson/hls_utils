@@ -8,7 +8,6 @@ import sys
 import argparse
 import m3u8
 import asyncio
-import pprint
 import logging
 from urllib.parse import urlparse
 import tracemalloc
@@ -16,8 +15,7 @@ from common import *
 from hls_internal import *
 from hls_internal.HLSDownloader import *
 
-def eprint(msg: str):
-	logging.error(msg)
+
 
 class Chain():
 	def __init__(self) -> None:
@@ -40,7 +38,7 @@ class ScanChain(Chain):
 		content = await parser.load(args.url)
 		if not content.ok:
 			eprint("cannot load %s reason %s" % (args.url, content.reason))
-		pprint.pprint(content.items)
+		objprint("parser content", content.items)
 		return content.ok
 	
 class LoopRunner():
@@ -80,6 +78,7 @@ class Actions(enum.Enum):
 	download = 0
 	scan = 1
 	stat = 2
+	available = 3
 
 	@staticmethod
 	def parse(value) -> enum.Enum:
@@ -148,18 +147,28 @@ async def scanCmd(args) -> bool:
 	runner = LoopRunner(chain)
 	return await runner.run(args)
 
+async def availableCmd(args) -> bool:
+	playlistUrl = args.url #"https://iptv-org.github.io/iptv/index.nsfw.m3u"
+	p = ListParser.Parser()
+	s = ListScanner.ListScanner()
+
+	await s.loadUrl(playlistUrl)
+	l = await s.scan()
+	objprint("availableCmd scan rc", l)
+
 async def main() -> int:
 	parser = argparse.ArgumentParser(add_help=True, description="HLS tool")
-	parser.add_argument("-o", "--out",action="store", default=".", help="download folder") 
-	parser.add_argument("-1", "--single", action="store_true", help="single run. test and exit")
+	parser.add_argument("-o", "--out",     action="store", default=".", help="download folder") 
+	parser.add_argument("-1", "--single",  action="store_true", help="single run. test and exit")
 	parser.add_argument("-v", "--verbose", action="store_true", help="full console output")
 	parser.add_argument("cmd", help="what do we do. variants: %s " % str(Actions.str_values()))
 	parser.add_argument("url", help="stream url")
 
 	args = parser.parse_args()
+	Globals.verbose = bool(args.verbose)
 	cmd = Actions.parse(args.cmd)
 	if cmd == Actions.invalid:
-		print("invalid cmd")
+		eprint("invalid cmd")
 		parser.print_help()
 		return -1
 
@@ -170,6 +179,8 @@ async def main() -> int:
 		rc = await statCmd(args)
 	elif cmd == Actions.scan:
 		rc = await scanCmd(args)
+	elif cmd == Actions.available:
+		rc = await availableCmd(args)
 	if rc:
 		return 0
 	return -1
