@@ -1,0 +1,6 @@
+[submodule "lists/Tvlist-awesome-m3u-m3u8"]
+	path = lists/Tvlist-awesome-m3u-m3u8
+	url = git@github.com:imDazui/Tvlist-awesome-m3u-m3u8.git
+[submodule "lists/iptv"]
+	path = lists/iptv
+	url = git@github.com:iptv-org/iptv.git

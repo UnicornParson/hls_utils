@@ -133,3 +133,4 @@ tmp/
 .idea
 /doc/*.bkp
 /doc/*.dtmp
+/lists/index.txt
