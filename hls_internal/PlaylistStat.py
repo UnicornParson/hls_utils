@@ -20,17 +20,24 @@ class PlaylistStat:
 		self.time = datetime.datetime.now()
 		self.loadDuaration = 0.0
 	
-	def toDict(self) -> dict:
+	def toDict(self, scramble: bool = False) -> dict:
 		d = {}
 		d["time"] = self.time
 		d["variant"] = self.variant
-		d["url"] = self.url
+		if scramble:
+			d["url"] = base64.b64encode(bytes(self.url, 'utf-8')).decode("utf-8")
+		else:
+			d["url"] = self.url
 		d["bandwidth"] = self.bandwidth
 		d["invalid"] = self.invalid
 		d["invalidReason"] = self.invalidReason
 		d["seq"] = self.seq
 		d["duration"] = self.duration
-		d["lastPlaylist"] = self.lastPlaylist
+
+		if scramble:
+			d["lastPlaylist"] = base64.b64encode(bytes(self.lastPlaylist, 'utf-8')).decode("utf-8")
+		else:
+			d["lastPlaylist"] = self.lastPlaylist
 		d["loadDuaration"] = self.loadDuaration
 		return d
 	
@@ -54,17 +61,23 @@ class StatWriter:
 	async def write(self, stat: PlaylistStat) -> bool:
 		return True
 
+	async def setup(self) -> bool:
+		return True
 	async def close(self):
 		pass
 
 class NopPrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
 		return True
-
+class NopWriter(StatWriter):
+	async def setup(self) -> bool:
+		return True
+	async def write(self, stat: PlaylistStat) -> bool:
+		return True
 class StatPrinter(StatWriter):
 	async def write(self, stat: PlaylistStat) -> bool:
 		d = stat.toDict()
-		logging.debug(json.dumps(d))
+		logging.debug(json.dumps(d, default=default_serialize))
 		if d["lastPlaylist"]:
 			s = len(d["lastPlaylist"])
 			d["lastPlaylist"] = "<truncated data> size %d" % s

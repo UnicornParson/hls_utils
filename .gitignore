@@ -134,3 +134,5 @@ tmp/
 /doc/*.bkp
 /doc/*.dtmp
 /lists/index.txt
+.ipynb_checkpoints
+*.bak

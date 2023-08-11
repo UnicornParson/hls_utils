@@ -14,8 +14,9 @@ import tracemalloc
 from common import *
 from hls_internal import *
 from hls_internal.HLSDownloader import *
-
-
+from hls_internal.OutputBuilder import *
+import json
+import urllib3
 
 class Chain():
 	def __init__(self) -> None:
@@ -107,15 +108,22 @@ class StatChain(Chain):
 		super().__init__()
 		self.s = None
 		self.writer = None
+		self.follow = True
 
 	async def setup(self, args):
-		self.s = StatCollector.StatCollector()
+		self.follow = not args.nofollow
+		self.s = StatCollector.StatCollector(self.follow)
+
 		printer = None
-		if args.verbose:
-			printer = StatCollector.StatVerbosePrinter()
+		if Globals.flow:
+			printer = StatCollector.NopPrinter()
+			self.writer = StatCollector.NopWriter()
 		else:
-			printer = StatCollector.StatPrinter()
-		self.writer = DbWriter.StatSqliteWriter()
+			if args.verbose:
+				printer = StatCollector.StatVerbosePrinter()
+			else:
+				printer = StatCollector.StatPrinter()
+			self.writer = DbWriter.NopWriter()
 
 		rc = await self.writer.setup()
 		if not rc:
@@ -161,11 +169,21 @@ async def main() -> int:
 	parser.add_argument("-o", "--out",     action="store", default=".", help="download folder") 
 	parser.add_argument("-1", "--single",  action="store_true", help="single run. test and exit")
 	parser.add_argument("-v", "--verbose", action="store_true", help="full console output")
+	parser.add_argument("--config", action="store", help="config file")
+	parser.add_argument("--flow", action="store_true", help="flow mode. json output only")
+	parser.add_argument("--nofollow", action="store_true", help="process only top playlist")
+	parser.add_argument("--delay", action="store_true", help="random sleep before start")
 	parser.add_argument("cmd", help="what do we do. variants: %s " % str(Actions.str_values()))
 	parser.add_argument("url", help="stream url")
 
 	args = parser.parse_args()
-	Globals.verbose = bool(args.verbose)
+	Globals.verbose = bool(args.verbose) and not bool(args.flow)
+	Globals.flow = bool(args.flow)
+	Globals.flowResults["ok"] = False
+
+	if args.delay:
+		randomSleep(0.2, 3.5)
+
 	cmd = Actions.parse(args.cmd)
 	if cmd == Actions.invalid:
 		eprint("invalid cmd")
@@ -181,13 +199,18 @@ async def main() -> int:
 		rc = await scanCmd(args)
 	elif cmd == Actions.available:
 		rc = await availableCmd(args)
-	if rc:
+	mprint("rc: %s" % str(rc))
+	Globals.flowResults["ok"] = rc
+
+	if rc or Globals.flow:
+		print(json.dumps(Globals.flowResults, default=default_serialize))
 		return 0
 	return -1
 
 if __name__ == '__main__':
 	result = 0
 	logging.basicConfig(filename='hls.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+	urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 	tracemalloc.start()
 	try:
 		result = asyncio.run(main())

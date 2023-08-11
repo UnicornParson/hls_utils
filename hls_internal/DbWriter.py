@@ -47,10 +47,13 @@ class DBEngine:
 		self.path = ""
 
 	async def open(self, path:str):
-		self.path = path
-		self.connection = sqlite3.connect(path)
-		self.cursor = self.connection.cursor()
-		await self.makeDb()
+		try:
+			self.path = path
+			self.connection = sqlite3.connect(path)
+			self.cursor = self.connection.cursor()
+			await self.makeDb()
+		except Exception as e:
+			eprint("cannot open %s reason: %s" % (path. str(e)))
 
 	def checkDb(self):
 		if not self.cursor or not self.connection:

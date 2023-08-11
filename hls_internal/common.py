@@ -6,20 +6,29 @@ import aiohttp
 import shutil
 import logging
 import pprint
+import traceback
+import datetime
+import requests
+from requests import ConnectionError
+import random
 
 class Globals:
 	verbose: bool = False
+	flow: bool = False
+	flowResults: dict = {}
 
 def mstime() -> int:
   return round(time.time() * 1000)
 
 def eprint(msg: str):
 	logging.error(msg)
-	print("# " + msg)
+	logging.error(str(traceback.format_exc()))
+	if not Globals.flow:
+		print("# " + msg)
 
 def mprint(msg: str):
 	logging.info(msg)
-	if Globals.verbose:
+	if Globals.verbose and not Globals.flow:
 		print("# " + msg)
 
 def objprint(msg, obj):
@@ -27,19 +36,18 @@ def objprint(msg, obj):
 	mprint("%s: [\n%s\n]" % (msg, s))
 
 def fssync():
-  os.system("sync")
+	os.system("sync")
 
 # https://stackoverflow.com/questions/12523586/python-format-size-application-converting-b-to-kb-mb-gb-tb
 def convert_bytes(num):
-    step_unit = 1000.0 #1024 bad the size
-
-    for x in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if num < step_unit:
-            return "%3.1f %s" % (num, x)
-        num /= step_unit
+	step_unit = 1000.0 #1024 bad the size
+	for x in ['B', 'KB', 'MB', 'GB', 'TB']:
+		if num < step_unit:
+			return "%3.1f %s" % (num, x)
+		num /= step_unit
 
 def mpSeed() -> str:
-  return "p%d_%d" % (os.getpid(), mstime())
+	return "p%d_%d" % (os.getpid(), mstime())
 
 def isAbsoluteUrl(url) -> bool:
 	return bool(urlparse(url).netloc)
@@ -115,3 +123,28 @@ async def downloadFile(url: str, target:str = "")-> DownloadFileStat:
 			ret.ok = False
 	ret.time = time.time() - start
 	return ret
+
+def randomSleep(start: float , stop: float ):
+	d = random.uniform(start, stop)
+	mprint("sleep %f seconds" % d)
+	time.sleep(d)
+def contentType(url: str):
+	try:
+		resp = requests.head(url, allow_redirects=True, verify=False, timeout=2.50)
+	except ConnectionError:
+		return None
+	except Exception as e:
+		# something unexpected
+		eprint("head request to %s failed with reason %s" % (url, str(e)))
+		return None
+	if 'Content-Type' in resp.headers:
+		return resp.headers['Content-Type']
+	return None
+
+def isHLS(ct: str)-> bool:
+	types = ["application/vnd.apple.mpegurl", "application/x-mpegURL"]
+	return ct in types
+def default_serialize(obj):
+	if isinstance(obj, datetime.datetime):
+		return obj.isoformat()
+	raise TypeError("Type %s not serializable" % type(obj).__name__)
