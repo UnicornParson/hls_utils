@@ -136,3 +136,4 @@ tmp/
 /lists/index.txt
 .ipynb_checkpoints
 *.bak
+/lists/available.txt
