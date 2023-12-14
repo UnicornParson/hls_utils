@@ -77,6 +77,7 @@ class DBEngine:
 				"invalid"	INTEGER NOT NULL DEFAULT 0,
 				"invalidReason"	TEXT,
 				"loadDuration" REAL NOT NULL DEFAULT 0.0,
+				"size" INTEGER NOT NULL DEFAULT 0,
 				"seq"	INTEGER NOT NULL,
 				"duration"	REAL NOT NULL DEFAULT 0.0,
 				"lastplaylist"	TEXT, 
@@ -141,7 +142,7 @@ class StatSqliteWriter(StatWriter):
 			q = """INSERT INTO 'segments'('parent', 'url', 'seq', 'hash', 'size','meta', 'ex')VALUES (?,?,?,?,?,?,?);"""
 			await self.engine.exec(q, data)
 		except Exception as e:
-			eprint("cannot exec query ", str(e))
+			eprint("cannot exec query %s" % str(e))
 			return False
 		return True
 
@@ -151,11 +152,11 @@ class StatSqliteWriter(StatWriter):
 			return False
 		try:
 			data = stat.toTuple()
-			q = """INSERT INTO 'playlists'('time', 'url', 'variant', 'bandwidth', 'invalid', 'invalidReason', 'seq', 'duration', 'lastplaylist', 'loadDuration')
-			 		VALUES (?,?,?,?,?,?,?,?,?,?);"""
+			q = """INSERT INTO 'playlists'('time', 'url', 'variant', 'bandwidth', 'invalid', 'invalidReason', 'seq', 'duration', 'lastplaylist', 'loadDuration', 'size')
+			 		VALUES (?,?,?,?,?,?,?,?,?,?,?);"""
 			await self.engine.exec(q, data)
 		except Exception as e:
-			eprint("cannot exec query ", str(e))
+			eprint("cannot exec query %s" % str(e))
 			return False
 		return True
 		

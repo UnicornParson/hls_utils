@@ -10,9 +10,16 @@ import m3u8
 import asyncio
 import logging
 from urllib.parse import urlparse
-import tracemalloc
-from common import *
 from hls_internal import *
+from common import *
+
+if has_pkg("tracemalloc"):
+	import tracemalloc
+else:
+	print("run without tracemalloc")
+
+
+
 from hls_internal.HLSDownloader import *
 from hls_internal.OutputBuilder import *
 import json
@@ -51,6 +58,7 @@ class LoopRunner():
 		if not rc:
 			eprint("cannot setup %s. args [%s]" %(self.chain.chainName(), str(args)))
 			return False
+
 		if args.single:
 			rc = await self.single(args)
 		else:
@@ -98,10 +106,22 @@ class Actions(enum.Enum):
 	def str_values() -> list:
 		return [e.name for e in Actions]
 
+class DownloaderChain(Chain):
+	def __init__(self) -> None:
+		super().__init__()
+		self.d = HLSDownloader.Downloader()
+		self.mapper = HLSDownloader.PlaylistMapping()
+
+	async def setup(self, args):
+		self.d.saveMeta = args.savemeta
+		return True
+	async def exec(self, args):
+		rc = await self.d.downloadPlaylist(args.url, self.mapper)
+		return rc
 async def downloadCmd(args) -> bool:
-	d = HLSDownloader.Downloader()
-	rc = await d.downloadPlaylist(args.url)
-	return rc
+	chain = DownloaderChain()
+	runner = LoopRunner(chain)
+	return await runner.run(args)
 
 class StatChain(Chain):
 	def __init__(self) -> None:
@@ -173,6 +193,9 @@ async def main() -> int:
 	parser.add_argument("--flow", action="store_true", help="flow mode. json output only")
 	parser.add_argument("--nofollow", action="store_true", help="process only top playlist")
 	parser.add_argument("--delay", action="store_true", help="random sleep before start")
+	parser.add_argument("--savemeta", action="store_true", help="save metainfo (playlists, text files, etc...)")
+	parser.add_argument("-z", "--zip", action="store_true", help="compress meta files")
+
 	parser.add_argument("cmd", help="what do we do. variants: %s " % str(Actions.str_values()))
 	parser.add_argument("url", help="stream url")
 
@@ -180,6 +203,7 @@ async def main() -> int:
 	Globals.verbose = bool(args.verbose) and not bool(args.flow)
 	Globals.flow = bool(args.flow)
 	Globals.flowResults["ok"] = False
+	Globals.zipdata = bool(args.zip)
 
 	if args.delay:
 		randomSleep(0.2, 3.5)
@@ -209,9 +233,13 @@ async def main() -> int:
 
 if __name__ == '__main__':
 	result = 0
-	logging.basicConfig(filename='hls.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+	try:
+		logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+	except ValueError:
+		logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), level=logging.DEBUG)
 	urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-	tracemalloc.start()
+	if has_pkg("tracemalloc"):
+		tracemalloc.start()
 	try:
 		result = asyncio.run(main())
 	except KeyboardInterrupt:

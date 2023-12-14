@@ -61,7 +61,7 @@ class StatCollector:
 		stat.bandwidth = 0
 		stat.loadDuaration = 0.0
 		stat.duration = 0
-
+		stat.size = 0
 		# test content
 		ct = contentType(url)
 		if not isHLS(ct):
@@ -73,6 +73,7 @@ class StatCollector:
 			before = time.time()
 			playlist = m3u8.load(url, timeout=3.0)
 			stat.loadDuaration = (time.time()-before)
+			stat.size = len(playlist.dumps())
 		except Exception as e:
 			stat.invalid = True
 			stat.invalidReason = str(e)

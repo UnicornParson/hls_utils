@@ -11,11 +11,32 @@ import datetime
 import requests
 from requests import ConnectionError
 import random
+import sys
+import gzip
+import io
 
+def saveToFile(text, target, zip = False):
+	if zip:
+		with gzip.open(target, 'wb') as f:
+			with io.TextIOWrapper(f, encoding='utf-8') as encode:
+				encode.write(text)
+	else:
+		with open(target, 'w') as f:
+			f.write(text)
+
+def textFromFile(source, zip = False):
+	if zip:
+		with gzip.open(source, 'rb') as f:
+			with io.TextIOWrapper(f, encoding='utf-8') as decoder:
+				return str(decoder.read())
+	else:
+		with open(source, 'r') as f:
+			return str(f.read())
 class Globals:
 	verbose: bool = False
 	flow: bool = False
 	flowResults: dict = {}
+	zipdata: bool = False
 
 def mstime() -> int:
   return round(time.time() * 1000)
@@ -114,7 +135,7 @@ async def downloadFile(url: str, target:str = "")-> DownloadFileStat:
 				await f.write(data)
 				await f.close()
 				shutil.move(tmpname, ret.target)
-				mprint(url, " done")
+				mprint(url + " done")
 				ret.ok = True
 				ret.time = time.time() - start
 				if ret.time > 0:

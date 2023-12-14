@@ -118,7 +118,10 @@ def download():
     click.echo('Dropped the database')
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+    try:
+        logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+    except ValueError:
+        logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), level=logging.DEBUG)
     tracemalloc.start()
     cli()
     logging.shutdown()

@@ -19,6 +19,7 @@ class PlaylistStat:
 		self.lastPlaylist = ""
 		self.time = datetime.datetime.now()
 		self.loadDuaration = 0.0
+		self.size = 0
 	
 	def toDict(self, scramble: bool = False) -> dict:
 		d = {}
@@ -39,10 +40,11 @@ class PlaylistStat:
 		else:
 			d["lastPlaylist"] = self.lastPlaylist
 		d["loadDuaration"] = self.loadDuaration
+		d["size"] = self.size
 		return d
 	
 	def toTuple(self) -> tuple:
-		return 	(
+		return (
 			self.time,
 			self.url,
 			self.variant,
@@ -52,7 +54,8 @@ class PlaylistStat:
 			self.seq,
 			self.duration,
 			base64.b64encode(bytes(self.lastPlaylist, 'utf-8')).decode("utf-8"),
-			self.loadDuaration)
+			self.loadDuaration,
+			self.size)
 
 class StatWriter:
 	def __init__(self) -> None:

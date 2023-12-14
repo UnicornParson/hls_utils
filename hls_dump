@@ -1,0 +1,11 @@
+#!/bin/bash
+
+while 1
+do
+   d=$(date +"%Y-%m-%d-%H-%M-%S" )
+   mkdir -p $d
+   pushd $d
+   wget $1
+   hls download -1 $1
+   popd
+done
