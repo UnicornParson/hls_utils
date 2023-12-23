@@ -85,6 +85,8 @@ class StatPrinter(StatWriter):
 			s = len(d["lastPlaylist"])
 			d["lastPlaylist"] = "<truncated data> size %d" % s
 		objprint("statprinter.dict", d)
+		with open("results.%d.%d.txt" % (mstime(), os.getpid()) , "w") as resultsFile:
+			resultsFile.write(json.dumps(d, default=default_serialize))
 		return True
 
 class StatVerbosePrinter(StatWriter):

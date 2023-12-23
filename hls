@@ -16,9 +16,7 @@ from common import *
 if has_pkg("tracemalloc"):
 	import tracemalloc
 else:
-	print("run without tracemalloc")
-
-
+	print("## run without tracemalloc")
 
 from hls_internal.HLSDownloader import *
 from hls_internal.OutputBuilder import *
@@ -67,13 +65,15 @@ class LoopRunner():
 		return rc
 
 	async def single(self, args):
-		return await self.chain.exec(args)
+		rc = await self.chain.exec(args)
+
+		return rc
 	
 	async def loop(self, args):
 		rc = []
 		try:
 			while True:
-				rc.append (await self.chain.exec(args))
+				rc.append (await self.single(args))
 				await asyncio.sleep(1)
 		except KeyboardInterrupt:
 			eprint("Interrupted..")
@@ -88,6 +88,7 @@ class Actions(enum.Enum):
 	scan = 1
 	stat = 2
 	available = 3
+	media = 4
 
 	@staticmethod
 	def parse(value) -> enum.Enum:
@@ -175,6 +176,24 @@ async def scanCmd(args) -> bool:
 	runner = LoopRunner(chain)
 	return await runner.run(args)
 
+async def extractMedia(args):
+	url = args.url
+	try:
+		playlist = m3u8.load(url, timeout=3.0)
+	except Exception as e:
+		return []
+	if not playlist.is_variant:
+		return [url]
+	urls = []
+	for sub in playlist.playlists:
+		newuri = sub.uri
+		if not isAbsoluteUrl(sub.uri):
+			base = urlBase(url)
+			newuri = base + sub.uri
+		sub.uri = newuri
+		urls.append(newuri)
+	return urls
+
 async def availableCmd(args) -> bool:
 	playlistUrl = args.url #"https://iptv-org.github.io/iptv/index.nsfw.m3u"
 	p = ListParser.Parser()
@@ -200,19 +219,21 @@ async def main() -> int:
 	parser.add_argument("url", help="stream url")
 
 	args = parser.parse_args()
+	cmd = Actions.parse(args.cmd)
+	if cmd == Actions.invalid:
+		eprint("invalid cmd")
+		parser.print_help()
+		return -1
 	Globals.verbose = bool(args.verbose) and not bool(args.flow)
-	Globals.flow = bool(args.flow)
+	Globals.flow = bool(args.flow) or cmd == Actions.media
+	print(Globals.flow)
 	Globals.flowResults["ok"] = False
 	Globals.zipdata = bool(args.zip)
 
 	if args.delay:
 		randomSleep(0.2, 3.5)
 
-	cmd = Actions.parse(args.cmd)
-	if cmd == Actions.invalid:
-		eprint("invalid cmd")
-		parser.print_help()
-		return -1
+
 
 	rc = False
 	if cmd == Actions.download:
@@ -223,6 +244,11 @@ async def main() -> int:
 		rc = await scanCmd(args)
 	elif cmd == Actions.available:
 		rc = await availableCmd(args)
+	elif cmd == Actions.media:
+		rc = await extractMedia(args)
+		print(json.dumps(rc, default=default_serialize))
+		return 0
+
 	mprint("rc: %s" % str(rc))
 	Globals.flowResults["ok"] = rc
 
@@ -234,9 +260,9 @@ async def main() -> int:
 if __name__ == '__main__':
 	result = 0
 	try:
-		logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
+		logging.basicConfig(filename='hls.%d.log' % (mstime()), encoding='utf-8', level=logging.DEBUG)
 	except ValueError:
-		logging.basicConfig(filename='hls_batch.%d.log' % (mstime()), level=logging.DEBUG)
+		logging.basicConfig(filename='hls.%d.log' % (mstime()), level=logging.DEBUG)
 	urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 	if has_pkg("tracemalloc"):
 		tracemalloc.start()
