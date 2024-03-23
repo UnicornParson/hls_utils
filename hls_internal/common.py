@@ -14,6 +14,7 @@ import random
 import sys
 import gzip
 import io
+import tempfile
 
 def saveToFile(text, target, zip = False):
 	if zip:
@@ -41,11 +42,16 @@ class Globals:
 def mstime() -> int:
   return round(time.time() * 1000)
 
+def tmpFname() -> str:
+	d = tempfile.gettempdir()
+	salt = random.uniform(0, 2**30)
+	return "%s/hlstmp_%d_%d.tmp" % (d, salt, mstime())
+
 def eprint(msg: str):
 	logging.error(msg)
 	logging.error(str(traceback.format_exc()))
 	if not Globals.flow:
-		print("# " + msg)
+		print("# " + msg, file=sys.stderr)
 
 def mprint(msg: str):
 	logging.info(msg)
@@ -71,7 +77,7 @@ def mpSeed() -> str:
 	return "p%d_%d" % (os.getpid(), mstime())
 
 def isAbsoluteUrl(url) -> bool:
-	return bool(urlparse(url).netloc)
+	return bool(urlparse(url).netloc) and not url.startswith("/")
 
 def isUrl(url) -> bool:
 	return isAbsoluteUrl(url)
@@ -125,23 +131,27 @@ async def downloadFile(url: str, target:str = "")-> DownloadFileStat:
 		# make tmp 
 		ret.target = "./dltmp.%s.%s" % (mpSeed(), os.path.basename(urlparse(url).path))
 	tmpname = ret.target + ".part"
-	async with aiohttp.ClientSession() as session:
-		async with session.get(url) as resp:
-			ret.status = resp.status
-			if resp.status == 200:
-				f = await aiofiles.open(tmpname, mode='wb')
-				data = await resp.read()
-				ret.size = len(data)
-				await f.write(data)
-				await f.close()
-				shutil.move(tmpname, ret.target)
-				mprint(url + " done")
-				ret.ok = True
-				ret.time = time.time() - start
-				if ret.time > 0:
-					ret.speed = ret.size / ret.time
-				return ret
-			ret.ok = False
+	try:
+		async with aiohttp.ClientSession() as session:
+			async with session.get(url) as resp:
+				ret.status = resp.status
+				if resp.status == 200:
+					f = await aiofiles.open(tmpname, mode='wb')
+					data = await resp.read()
+					ret.size = len(data)
+					await f.write(data)
+					await f.close()
+					shutil.move(tmpname, ret.target)
+					mprint(url + " done")
+					ret.ok = True
+					ret.time = time.time() - start
+					if ret.time > 0:
+						ret.speed = ret.size / ret.time
+					return ret
+				ret.ok = False
+	except Exception as e:
+		eprint("downloadFile exception %s" % str(e))
+
 	ret.time = time.time() - start
 	return ret
 
@@ -165,6 +175,7 @@ def contentType(url: str):
 def isHLS(ct: str)-> bool:
 	types = ["application/vnd.apple.mpegurl", "application/x-mpegURL"]
 	return ct in types
+
 def default_serialize(obj):
 	if isinstance(obj, datetime.datetime):
 		return obj.isoformat()

@@ -12,6 +12,7 @@ from hls_internal.OutputBuilder import *
 import tracemalloc
 import tqdm
 import random
+
 def readList(fname: str) -> list:
     if not os.path.isfile(fname):
         raise "%s not a file" % fname

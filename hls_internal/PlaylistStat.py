@@ -20,6 +20,7 @@ class PlaylistStat:
 		self.time = datetime.datetime.now()
 		self.loadDuaration = 0.0
 		self.size = 0
+		self.media = {}
 	
 	def toDict(self, scramble: bool = False) -> dict:
 		d = {}
@@ -41,6 +42,7 @@ class PlaylistStat:
 			d["lastPlaylist"] = self.lastPlaylist
 		d["loadDuaration"] = self.loadDuaration
 		d["size"] = self.size
+		d["media"] = self.media
 		return d
 	
 	def toTuple(self) -> tuple:

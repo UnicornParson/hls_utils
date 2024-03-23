@@ -2,6 +2,7 @@ import m3u8
 import asyncio
 import traceback
 import time
+
 from urllib.parse import urlparse
 from .PlaylistStat import *
 from .common import *
@@ -18,16 +19,18 @@ class StatCollector:
 		self.statWriters = statWriters
 		return True
 
-	async def processUrl(self, url: str) -> bool:
+	async def processUrl(self, url: str, tryMedia: bool) -> bool:
 		mprint("process %s" % url)
 		if not self.statWriters:
 			raise ValueError("run before setup")
 		ret = True
-		stats = await self.getPlaylistStat(url)
+		stats = await self.getPlaylistStat(url, tryMedia)
 		if Globals.flow:
 			Globals.flowResults["stat"] = []
 		for s in stats:
 			ret &= not s.invalid
+			if tryMedia and not s.variant:
+				ret &= (bool(s.media) and ("ok" in s.media) and (s.media["ok"]))
 			writeRc = True
 			if Globals.flow:
 				Globals.flowResults["stat"].append(s.toDict(True))
@@ -43,7 +46,7 @@ class StatCollector:
 		rc = True
 		try:
 			while True:
-				rc &= await self.processUrl(url)
+				rc &= await self.processUrl(url, True)
 				await asyncio.sleep(1)
 		except KeyboardInterrupt:
 			eprint("Interrupted..")
@@ -52,7 +55,7 @@ class StatCollector:
 			rc = False
 		return rc
 
-	async def getPlaylistStat(self, url: str):
+	async def getPlaylistStat(self, url: str, tryMedia: bool):
 		if not self.statWriters:
 			raise ValueError("run before setup")
 		mprint("stat for %s" % url)
@@ -98,8 +101,28 @@ class StatCollector:
 					stat.duration += item.duration
 
 		else:
+			stat.media = await self.tryMedia(playlist, url) if tryMedia else {}
 			stat.lastPlaylist = playlist.dumps()
 			stat.duration = playlist.target_duration
 			stat.seq = playlist.media_sequence
 		rc.append(stat)
+		return rc
+
+	async def tryMedia(self, playlist, base_url) -> dict:
+		rc = {}
+		if not playlist.segments:
+			rc["ok"] = False
+			rc["reason"] = "No Segmants"
+			return rc
+		last_seg = playlist.segments[-1]
+		last_seg_uri = last_seg.uri
+		if not isAbsoluteUrl(last_seg.uri):
+			base = urlBase(base_url)
+			last_seg_uri = base + last_seg.uri
+		tmp_target = tmpFname()
+		if (last_seg_uri.startswith("/")):
+			raise ValueError("invalid url [%s], base [%s], segment [%s]" % (last_seg_uri, urlBase(base_url), last_seg.uri))
+		last_stat = await downloadFile(last_seg_uri, tmp_target)
+		rc["try"] = last_stat.toDict()
+		rc["ok"] = last_stat.ok
 		return rc

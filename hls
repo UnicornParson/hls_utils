@@ -15,8 +15,6 @@ from common import *
 
 if has_pkg("tracemalloc"):
 	import tracemalloc
-else:
-	print("## run without tracemalloc")
 
 from hls_internal.HLSDownloader import *
 from hls_internal.OutputBuilder import *
@@ -157,7 +155,7 @@ class StatChain(Chain):
 		return rc
 		
 	async def exec(self, args):
-		rc = await self.s.processUrl(args.url)
+		rc = await self.s.processUrl(args.url, True)
 		return rc
 	
 	async def close(self, args):
@@ -226,7 +224,6 @@ async def main() -> int:
 		return -1
 	Globals.verbose = bool(args.verbose) and not bool(args.flow)
 	Globals.flow = bool(args.flow) or cmd == Actions.media
-	print(Globals.flow)
 	Globals.flowResults["ok"] = False
 	Globals.zipdata = bool(args.zip)
 
